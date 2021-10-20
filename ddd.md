@@ -10,7 +10,7 @@ style: |
         },
           	
         h1 {
-            font-size: 50px;
+            font-size: 42px;
             left: 5%;
             position: absolute;
             top: 6%;
@@ -294,4 +294,253 @@ pry(main)> user1 == user2
 | 可変性 | 不変 | 可変 |
 ---
 # 今日はここまで
-##### サービスオブジェクトはまた次回？
+##### ドメインサービスはまた次回？
+---
+# 第二節(各パターンの紹介) 目次
+
+   1. <知識を表現するパターン>
+      1. 値オブジェクト
+      2. エンティティ
+      3. <ドメインサービス>
+   2. アプリケーションを実現するためのパターン
+      1. リポジトリ
+      2. アプリケーションサービス
+      3. ファクトリ
+   3. 知識を表現する、より発展的なパターン
+      1. 集約
+      2. 仕様
+---
+# ドメインサービスとは
+
+##### 値オブジェクトやエンティティに記述するのは不自然なふるまいを記述するサービス
+---
+# 例えば...
+
+##### User オブジェクトに対して、ある user と同姓同名の人物が存在するか否かのチェックをしたい場合
+
+```
+class User
+  def initialize(fst_n, lst_n) end;
+
+  def exists?
+    (DB に存在したら) ? true : false
+  end
+end
+```
+---
+# 例えば...
+
+##### User オブジェクトに対して、ある user と同姓同名の人物が存在するか否かのチェックをしたい場合
+
+```
+user = User.new(lst_n: '田中', fst_n: '太郎')
+user.exists?
+=> true
+```
+##### そもそも具体化された個々のオブジェクトに問い合わせるものなのか？？
+---
+# 例えば...
+
+```
+user = User.new(lst_n: '田中', fst_n: '太郎')
+
+user.lst_n
+=> '太郎'
+// user 自身に問い合わせるべき
+
+user.exists?
+=> true
+// user 自身に問い合わせるべきではない
+
+```
+---
+# service クラスの導入
+
+```
+class UserService
+  self.exists?(user)
+    (DB に存在すれば) ? true : false
+  end
+end
+-----------------------------------
+user = User.new(lst_n: '田中', fst_n: '太郎')
+
+UserService.exists?(user)
+=> true
+```
+---
+# ドメインサービスの濫用はよくない
+
+```
+class UserService
+  def eql?(user1, user2)
+    user1.lst_n == user2.lst_n && user1.fst_n && user2.fst_n
+  end
+end
+-----
+user1 = User.new(lst_n: '田中', fst_n: '太郎')
+user2 = User.new(lst_n: '田中', fst_n: '太郎')
+
+UserService.eql?(user1, user2)
+=> true
+```
+---
+# 結果、値ｵﾌﾞｼﾞｪｸﾄやｴﾝﾃｨﾃｨが有名無実化する
+##### ドメインサービス濫用のデメリット
+
+- ロジックが点在化し、保守が難しくなる
+- システム特有の「ふるまい」が分かりづらくなる
+---
+# ドメインサービスを利用する際は…
+
+- オブジェクト自身に問い合わせることが不自然な処理のとき
+- 複数のクラスを横断するような処理のとき
+
+##### ※ ただし、あくまで値オブジェクトやエンティティでの実装を優先して検討すべき
+
+---
+# 例
+---
+# 第二節(各パターンの紹介) 目次
+
+   1. 知識を表現するパターン
+      1. 値オブジェクト
+      2. エンティティ
+      3. ドメインサービス
+   2. <アプリケーションを実現するためのパターン>
+      1. <リポジトリ>
+      2. アプリケーションサービス
+      3. ファクトリ
+   3. 知識を表現する、より発展的なパターン
+      1. 集約
+      2. 仕様
+---
+# リポジトリとは？
+
+##### データを永続化し再構築するといった処理を抽象的に扱うためのオブジェクト
+
+###### Rails でいう ActiveRecord のこと？
+---
+# リポジトリがないと…
+###### 内容把握のためには、Ruby だけでなく SQL も読み込まなければならない
+
+```
+class User < ActiveRecord
+  def save
+    return false lst_n.length > 2
+    return false fst_n.length > 2
+
+    ActiveRecord::Base.connection.execute(
+       'INSERT INTO users VALUES `lst_n`, `fst_n`';
+    )
+  end
+end
+```
+---
+# データの永続化処理は分離する（例）
+###### ActiveRecord の `save` はあえて使わず…
+
+```
+class UserRepository < ActiveRecord
+  def initialize end;
+
+  def save
+    ActiveRecord::Base.connection.execute(
+       'INSERT INTO users VALUES `@lst_n`, `@fst_n`';
+    )
+  end
+end
+```
+---
+# データの永続化処理は分離する（例）
+###### ActiveRecord の `save` はあえて使わず…
+
+```
+class User
+  def save
+    return false lst_n.length > 2
+    return false fst_n.length > 2
+
+    UserRepository.new(lst_n, fst_n).save
+  end
+end
+```
+---
+# リポジトリのメリット
+##### リポジトリ側・ドメイン側双方のコードの保守性があがる
+1. インフラ側の要件が決まっていなくとも実装を開始できる
+2. ドメイン側のコードが簡潔になる
+   1. SQLもドメイン側に記載すると、コードの大半がSQL文で埋め尽くされるため
+---
+# 第二節(各パターンの紹介) 目次
+
+   1. 知識を表現するパターン
+      1. 値オブジェクト
+      2. エンティティ
+      3. ドメインサービス
+   2. <アプリケーションを実現するためのパターン>
+      1. リポジトリ
+      2. <アプリケーションサービス>
+      3. ファクトリ
+   3. 知識を表現する、より発展的なパターン
+      1. 集約
+      2. 仕様
+---
+# アプリケーションサービスとは？
+
+##### ユースケースを実現するもの
+##### ex) Create, Read, Update, Delete etc..
+###### 無理やり Rails で当てはめるなら、controller ?
+---
+# ドメインサービスとの差異
+##### そもそもレイヤーが異なる
+
+- ドメインサービス
+  - エンティティや値オブジェクトに書くべきでないふるまいを実装する
+- アプリケーションサービス
+  - ユーザのシナリオを一対一で表現したもの
+---
+# アプリケーションサービス（例）
+
+```
+class UserApplicationService
+  def register(fst_n, lst_n)
+    user = User.new(fst_n, lst_n) // エンティティ
+    // ドメインサービス
+    if UserService.new(user).exists?
+      // リポジトリ
+      UserRepository.new(lst_n, fst_n).save
+    else
+      raise '存在してます'
+    end
+  end
+end
+```
+---
+# 注意点: ドメインルールの流出を防ぐ
+###### コードが散逸し変更に弱くなるため
+```
+class UserApplicationService
+  def register(fst_n, lst_n)
+    raise 'ValidationError' unless fst_n || lst_n
+    UserRepository.new.save(fst_n, lst_n)
+  end
+
+  def update(fst_n, lst_n)
+    raise 'ValidationError' unless fst_n || lst_n
+    UserRepository.new.update(fst_n, lst_n)
+  end
+end
+```
+---
+# 今日はここまで
+##### ファクトリはまた次回？
+---
+# おまけ1
+![bg 60%](https://i.imgur.com/PC7Cg2G.jpg)
+
+---
+# おまけ2
+![bg 60%](https://i.imgur.com/3zUiYRD.jpg)
+
+---
