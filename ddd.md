@@ -507,7 +507,7 @@ class UserApplicationService
   def register(fst_n, lst_n)
     user = User.new(fst_n, lst_n) // エンティティ
     // ドメインサービス
-    if UserService.new(user).exists?
+    unless UserService.new(user).exists?
       // リポジトリ
       UserRepository.new(lst_n, fst_n).save
     else
