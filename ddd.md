@@ -603,7 +603,7 @@ end
 
 | | Service | Factory |
 | --- | ------ | ------- |
-| func を渡すと | インスタンスにして返す | 関数のまま返す？ |
+|| アプリ内で1つしかインスタンスが生成されない、シングルトン | 呼び出しごとに初期化される |
 
 
 ##### 参考: https://github.com/angular/angular.js/blob/v1.2.0-rc.3/src/auto/injector.js#L620
@@ -704,11 +704,11 @@ class UserOldSpecification
   def initialize; end
 
   def is_adult?
-    self.old >= 20
+    @user.old >= 20
   end
 
   def is_elder?
-    seld.old >= 60
+    @user.old >= 60
   end
 end
 ```
